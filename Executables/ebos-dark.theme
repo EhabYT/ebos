@@ -1,0 +1,79 @@
+[Theme]
+DisplayName=EBOS Dark
+ThemeId={1545A5F7-3E0C-4670-8A21-99FDEEA37AA5}
+
+[Control Panel\Desktop]
+Wallpaper=%SystemRoot%\Web\Wallpaper\EBOS\wallpaper.png
+Pattern=
+MultimonBackgrounds=0
+PicturePosition=4
+WindowsSpotlight=0
+
+[Control Panel\Cursors]
+AppStarting=%SystemRoot%\Cursors\EBOS\ebos-appstarting.ani
+Arrow=%SystemRoot%\Cursors\EBOS\ebos-arrow.ani
+Crosshair=%SystemRoot%\Cursors\EBOS\ebos-cross.ani
+Hand=%SystemRoot%\Cursors\EBOS\ebos-hand.ani
+Help=%SystemRoot%\Cursors\EBOS\ebos-help.ani
+IBeam=%SystemRoot%\Cursors\EBOS\ebos-ibeam.ani
+No=%SystemRoot%\Cursors\EBOS\ebos-no.ani
+NWPen=%SystemRoot%\Cursors\EBOS\ebos-pen.ani
+Person=%SystemRoot%\Cursors\EBOS\ebos-person.ani
+Pin=%SystemRoot%\Cursors\EBOS\ebos-pin.ani
+SizeAll=%SystemRoot%\Cursors\EBOS\ebos-sizeall.ani
+SizeNESW=%SystemRoot%\Cursors\EBOS\ebos-sizenesw.ani
+SizeNS=%SystemRoot%\Cursors\EBOS\ebos-sizens.ani
+SizeNWSE=%SystemRoot%\Cursors\EBOS\ebos-sizenwse.ani
+SizeWE=%SystemRoot%\Cursors\EBOS\ebos-sizewe.ani
+UpArrow=%SystemRoot%\Cursors\EBOS\ebos-up.ani
+Wait=%SystemRoot%\Cursors\EBOS\ebos-wait.ani
+DefaultValue=EBOS
+
+[Sounds]
+SchemeName=No Sounds
+
+[VisualStyles]
+Path=%SystemRoot%\resources\themes\Aero\Aero.msstyles
+ColorStyle=NormalColor
+Size=NormalSize
+AutoColorization=0
+ColorizationColor=0xFF007AFF
+SystemMode=Dark
+AppMode=Dark
+VisualStyleVersion=10
+
+[Control Panel\Colors]
+Scrollbar=12 28 48
+Background=6 16 30
+ActiveTitle=8 24 44
+InactiveTitle=6 16 30
+Menu=10 20 34
+Window=10 24 42
+WindowFrame=64 96 128
+MenuText=255 255 255
+WindowText=255 255 255
+TitleText=255 255 255
+ActiveBorder=36 72 112
+InactiveBorder=16 34 56
+AppWorkspace=6 14 26
+Hilight=0 122 255
+HilightText=255 255 255
+ButtonFace=10 24 42
+ButtonShadow=4 10 18
+GrayText=168 184 204
+ButtonText=255 255 255
+InactiveTitleText=200 214 230
+ButtonHilight=48 80 116
+ButtonDkShadow=2 6 12
+ButtonLight=16 34 56
+InfoText=255 255 255
+InfoWindow=12 28 48
+ButtonAlternateFace=10 24 42
+HotTrackingColor=95 200 255
+GradientActiveTitle=8 24 44
+GradientInactiveTitle=6 16 30
+MenuHilight=0 122 255
+MenuBar=6 16 30
+
+[MasterThemeSelector]
+MTSM=RJSPBS

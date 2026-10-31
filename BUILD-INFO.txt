@@ -1,0 +1,26 @@
+EBOS
+Licensed under the PolyForm Noncommercial License 1.0.0.
+
+build id   : 20261018.r11h2l
+built      : 2026-10-18 (Build nach Phase 3, Taskbar-Mitte, Windhawk-Skript)
+
+applied build steps:
+  - apply-26h2-hardening.py
+  - apply-allow-atlas.py
+  - apply-branding.py
+  - apply-build-stamp.py
+  - apply-cursors.py
+  - apply-dash-accent.py
+  - apply-dash-strings.py
+  - apply-exe-icon.py
+  - apply-msa-keep.py
+  - apply-oem-power.py
+  - apply-personalization-guard.py
+  - apply-remove-dash.py
+  - apply-requirements.py
+  - apply-support-url.py
+  - apply-wallpaper.py
+
+Check you are running THIS build: the wizard header must read
+    EBOS [build 20261018.r11h2l]
+If it shows a different id, an older archive was loaded.

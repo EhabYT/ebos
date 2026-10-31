@@ -1,0 +1,16 @@
+# Windows shell junk
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Logs and temp files
+*.log
+*.tmp
+*.temp
+~$*
+
+# Editor / IDE folders
+.vscode/
+.idea/
+*.swp

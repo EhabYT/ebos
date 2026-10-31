@@ -1,0 +1,14 @@
+* text=auto
+
+# Package binaries
+*.exe binary
+*.dll binary
+*.cab binary
+*.msi binary
+*.zip binary
+*.7z binary
+*.png binary
+*.jpg binary
+*.ico binary
+*.ani binary
+*.cur binary
