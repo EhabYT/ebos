@@ -1154,6 +1154,7 @@ foreach ($e in $tasks) {
   if ($allTasks[$e.t] -ne 'Disabled') { $bad++; $out += ('TASK NOT DISABLED      ' + $e.t + ' = ' + $allTasks[$e.t]) } }
 
 $installed = @(Get-AppxPackage -AllUsers)
+$provisioned = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue)
 $appx = @(
   @{n='Microsoft.549981C3F5F10*';g='remove-bloat'},
   @{n='Microsoft.BingNews*';g='remove-bloat'},
@@ -1307,7 +1308,17 @@ foreach ($e in $appx) {
   if (-not (Test-Gate $e.g)) { $na++; continue }
   $checked++
   $hit = $installed | Where-Object { $_.Name -like $e.n -or $_.PackageFamilyName -like $e.n } | Select-Object -First 1
-  if ($hit) { $bad++; $out += ('APPX STILL INSTALLED   ' + $e.n + ' -> ' + $hit.Name) } }
+  if ($hit) { $bad++; $out += ('APPX STILL INSTALLED   ' + $e.n + ' -> ' + $hit.Name); continue }
+  $phit = $provisioned | Where-Object {
+    $pkg = $_
+    $family = $null
+    try {
+      $parts = @(([string]$pkg.PackageName) -split '_')
+      if ($parts.Count -ge 2) { $family = $parts[0] + '_' + $parts[$parts.Count - 1] }
+    } catch {}
+    ($pkg.DisplayName -like $e.n) -or ($pkg.PackageName -like $e.n) -or ($family -and $family -like $e.n)
+  } | Select-Object -First 1
+  if ($phit) { $bad++; $out += ('APPX STILL PROVISIONED ' + $e.n + ' -> ' + $phit.DisplayName) } }
 
 # --- file checks (theme / wallpaper / cursors / icons) - read-only ----
 $files = @(

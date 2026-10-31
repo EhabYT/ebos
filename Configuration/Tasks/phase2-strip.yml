@@ -24,8 +24,41 @@ actions:
     errorAction: Ignore
     command: |
       $snapPath = Join-Path $env:TEMP 'ebos-appx-snapshot.txt'
-      (Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue).PackageFamilyName |
-        Sort-Object -Unique | Out-File -FilePath $snapPath -Encoding ASCII -Force
+      $snap = New-Object System.Collections.Generic.List[string]
+      $installedErrors = @()
+      try {
+        $installed = @(Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue -ErrorVariable +installedErrors)
+        foreach ($family in @($installed | ForEach-Object { [string]$_.PackageFamilyName } | Where-Object { $_ } | Sort-Object -Unique)) {
+          if ($family -match '^[A-Za-z0-9][A-Za-z0-9._-]*$') { $snap.Add('I:' + $family) }
+        }
+      } catch {
+        $snap.Add('# installed query failed: ' + $_.Exception.Message)
+      }
+      if ($installedErrors.Count -gt 0) {
+        $snap.Add('# installed query errors: ' + (($installedErrors | ForEach-Object { $_.Exception.Message }) -join '; '))
+      }
+      $provisionedErrors = @()
+      try {
+        $provisioned = @(Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue -ErrorVariable +provisionedErrors)
+        $provFamilies = New-Object System.Collections.Generic.List[string]
+        foreach ($prov in $provisioned) {
+          $parts = @(([string]$prov.PackageName) -split '_')
+          if ($parts.Count -ge 2 -and $parts[0] -and $parts[$parts.Count - 1]) {
+            $provFamilies.Add($parts[0] + '_' + $parts[$parts.Count - 1])
+          } elseif ($parts.Count -eq 1 -and $parts[0]) {
+            $provFamilies.Add($parts[0])
+          }
+        }
+        foreach ($family in @($provFamilies | Sort-Object -Unique)) {
+          if ($family -match '^[A-Za-z0-9][A-Za-z0-9._-]*$') { $snap.Add('P:' + $family) }
+        }
+      } catch {
+        $snap.Add('# provisioned query failed: ' + $_.Exception.Message)
+      }
+      if ($provisionedErrors.Count -gt 0) {
+        $snap.Add('# provisioned query errors: ' + (($provisionedErrors | ForEach-Object { $_.Exception.Message }) -join '; '))
+      }
+      $snap | Out-File -FilePath $snapPath -Encoding ASCII -Force
       $global:LASTEXITCODE = 0
   - !powerShell:
     wait: true
@@ -767,10 +800,9 @@ actions:
               $patterns | Where-Object { $name -like ($_ + '_*') }
             } | ForEach-Object {
               $dir = $_.FullName
-              $q = [char]34
               try {
-                Start-Process -FilePath 'takeown.exe' -ArgumentList ('/F', ($q + $dir + $q), '/R', '/D', 'Y') -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
-                Start-Process -FilePath 'icacls.exe' -ArgumentList (($q + $dir + $q), '/grant', 'administrators:F', '/T', '/C') -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+                & icacls.exe $dir /setowner '*S-1-5-32-544' /T /C /Q 2>&1 | Out-Null
+                & icacls.exe $dir /grant '*S-1-5-32-544:(OI)(CI)F' /T /C /Q 2>&1 | Out-Null
                 Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
               } catch {}
             }
@@ -2443,9 +2475,9 @@ actions:
               if ($d -and (Test-Path $d.FullName)) {
                 try {
                   $q = [char]34
-                  $tkArgs = '/F ' + $q + $d.FullName + $q + ' /R /D Y'
-                  Start-Bounded 'takeown.exe' $tkArgs 180000
-                  $icArgs = $q + $d.FullName + $q + ' /grant administrators:F /T /C'
+                  $icArgs = $q + $d.FullName + $q + ' /setowner *S-1-5-32-544 /T /C /Q'
+                  Start-Bounded 'icacls.exe' $icArgs 180000
+                  $icArgs = $q + $d.FullName + $q + ' /grant *S-1-5-32-544:(OI)(CI)F /T /C /Q'
                   Start-Bounded 'icacls.exe' $icArgs 180000
                   Remove-Item -Path $d.FullName -Recurse -Force -ErrorAction SilentlyContinue
                 } catch {}
@@ -2596,8 +2628,8 @@ actions:
         } | ForEach-Object {
           $dir = $_.FullName
           try {
-            & takeown.exe /F $dir /R /D Y 2>&1 | Out-Null
-            & icacls.exe $dir /grant 'administrators:F' /T /C 2>&1 | Out-Null
+            & icacls.exe $dir /setowner '*S-1-5-32-544' /T /C /Q 2>&1 | Out-Null
+            & icacls.exe $dir /grant '*S-1-5-32-544:(OI)(CI)F' /T /C /Q 2>&1 | Out-Null
             Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
           } catch {}
         }
@@ -2610,8 +2642,8 @@ actions:
         } | ForEach-Object {
           $dir = $_.FullName
           try {
-            & takeown.exe /F $dir /R /D Y 2>&1 | Out-Null
-            & icacls.exe $dir /grant 'administrators:F' /T /C 2>&1 | Out-Null
+            & icacls.exe $dir /setowner '*S-1-5-32-544' /T /C /Q 2>&1 | Out-Null
+            & icacls.exe $dir /grant '*S-1-5-32-544:(OI)(CI)F' /T /C /Q 2>&1 | Out-Null
             Remove-Item -Path $dir -Recurse -Force -ErrorAction SilentlyContinue
           } catch {}
         }
@@ -2672,68 +2704,20 @@ actions:
   - !taskKill: {name: "SearchHost", errorAction: Ignore}
   - !taskKill: {name: "Widgets", errorAction: Ignore}
 
+  # Finish the job for every AppX family that disappeared during phase 2:
+  # remove the provisioned copy, staging/AppRepository keys, WindowsApps folder
+  # and per-user app data. Done by app-remove.ps1 so the direct calls above and
+  # this final sweep share one implementation.
   - !powerShell:
     wait: true
+    exeDir: true
     errorAction: Ignore
     command: |
       $snapPath = Join-Path $env:TEMP 'ebos-appx-snapshot.txt'
-      if (-not (Test-Path $snapPath)) { return }
-      try {
-        $before = Get-Content -Path $snapPath -ErrorAction SilentlyContinue | Where-Object { $_ }
-        $after = (Get-AppxPackage -AllUsers -ErrorAction SilentlyContinue).PackageFamilyName | Sort-Object -Unique
-        $removed = @($before | Where-Object { $after -notcontains $_ })
-        $deprovBase = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned'
-        $appsBase = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Applications'
-        $inboxBase = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\InboxApplications'
-        $winAppsDir = Join-Path $env:ProgramFiles 'WindowsApps'
-        $appRepo = Join-Path $env:ProgramData 'Microsoft\Windows\AppRepository\Packages'
-        foreach ($family in $removed) {
-          if ([string]::IsNullOrWhiteSpace($family)) { continue }
-          try {
-            $dp = Join-Path $deprovBase $family
-            if (-not (Test-Path $dp)) { New-Item -Path $dp -Force -ErrorAction SilentlyContinue | Out-Null }
-          } catch {}
-          $shortName = ($family -split '_')[0]
-          if ([string]::IsNullOrWhiteSpace($shortName)) { continue }
-          if (Test-Path $winAppsDir) {
-            Get-ChildItem -Path $winAppsDir -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
-              $_.Name -like ($shortName + '_*')
-            } | ForEach-Object {
-              try {
-                & takeown.exe /F $_.FullName /R /D Y 2>&1 | Out-Null
-                & icacls.exe $_.FullName /grant 'administrators:F' /T /C 2>&1 | Out-Null
-                Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-              } catch {}
-            }
-          }
-          if (Test-Path $appRepo) {
-            Get-ChildItem -Path $appRepo -Directory -Force -ErrorAction SilentlyContinue | Where-Object {
-              $_.Name -like ($shortName + '_*')
-            } | ForEach-Object {
-              try {
-                & takeown.exe /F $_.FullName /R /D Y 2>&1 | Out-Null
-                & icacls.exe $_.FullName /grant 'administrators:F' /T /C 2>&1 | Out-Null
-                Remove-Item -Path $_.FullName -Recurse -Force -ErrorAction SilentlyContinue
-              } catch {}
-            }
-          }
-          if (Test-Path $appsBase) {
-            Get-ChildItem -Path $appsBase -ErrorAction SilentlyContinue | Where-Object {
-              $_.PSChildName -like ($shortName + '_*')
-            } | ForEach-Object {
-              try { Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue } catch {}
-            }
-          }
-          if (Test-Path $inboxBase) {
-            Get-ChildItem -Path $inboxBase -ErrorAction SilentlyContinue | Where-Object {
-              $_.PSChildName -like ($shortName + '_*')
-            } | ForEach-Object {
-              try { Remove-Item -Path $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue } catch {}
-            }
-          }
-        }
-      } catch {}
-      Remove-Item -Path $snapPath -Force -ErrorAction SilentlyContinue
+      if (Test-Path -LiteralPath $snapPath) {
+        & '.\app-remove.ps1' -PurgeRemoved -SnapshotFile $snapPath
+      }
+      Remove-Item -LiteralPath $snapPath -Force -ErrorAction SilentlyContinue
       $global:LASTEXITCODE = 0
   - !writeStatus: {status: "Refreshing App Cache"}
   - !powerShell:
