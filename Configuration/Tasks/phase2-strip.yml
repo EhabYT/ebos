@@ -92,23 +92,10 @@ actions:
         }
       }
   - !writeStatus: {status: "Removing Bloatware", option: "remove-bloat"}
-  - !powerShell:
-      option: "remove-bloat"
-      wait: true
-      errorAction: Ignore
-      command: |
-        $marker = Join-Path $env:windir 'EBOS\.personalization-applied'
-        if (Test-Path $marker) { $global:LASTEXITCODE = 0; return }
-        $firstRunOnly = @('SpotifyAB.SpotifyMusic*','*Netflix*','*TikTok*')
-        foreach ($pat in $firstRunOnly) {
-          Get-AppxPackage -AllUsers | Where-Object { $_.Name -like $pat -or $_.PackageFamilyName -like $pat } | ForEach-Object {
-            try { Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue } catch {}
-          }
-          Get-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -like $pat -or $_.PackageName -like $pat } | ForEach-Object {
-            try { Remove-AppxProvisionedPackage -Online -PackageName $_.PackageName -ErrorAction SilentlyContinue | Out-Null } catch {}
-          }
-        }
-        $global:LASTEXITCODE = 0
+  # Streaming/social consumer apps are handled by the authoritative
+  # app-remove.ps1 -Bloatware pass further down. Unlike the old first-run-only
+  # block, that pass runs on every apply and also removes provisioned copies,
+  # staging keys and per-user data.
 
   - !powerShell:
       option: "remove-bloat"
@@ -262,6 +249,18 @@ actions:
   - !appx: {name: 'AmazonVideo.PrimeVideo*', operation: remove, option: "remove-bloat", errorAction: Ignore}
   - !appx: {name: 'BookingApp*', operation: remove, option: "remove-bloat", errorAction: Ignore}
   - !appx: {name: 'HULULLC.HULUPLUS*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  # Consumer/streaming apps OEM images preinstall. app-remove.ps1 -Bloatware
+  # later finishes the job for provisioned-only copies and app data.
+  - !appx: {name: '*Spotify*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: '*Netflix*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: '*TikTok*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: '*WhatsApp*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: '*Messenger*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: 'Disney.37853FC22B2CE*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: '*HBO*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: '*Paramount*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: '*Peacock*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: '*Crunchyroll*', operation: remove, option: "remove-bloat", errorAction: Ignore}
   - !appx: {name: '*DisneyMagicKingdoms*', operation: remove, option: "remove-bloat", errorAction: Ignore}
   - !appx: {name: '*Facebook*', operation: remove, option: "remove-bloat", errorAction: Ignore}
   - !appx: {name: '*Instagram*', operation: remove, option: "remove-bloat", errorAction: Ignore}
@@ -328,7 +327,7 @@ actions:
       errorAction: Ignore
       command: |
         try {
-          $publisherPrefixes = @('BlipStudioInc','Disney','Instagram','Facebook','Amazon','HULULLC','iHeartRadio','Pandora','Plex','Shazam','Viber','WinZip','NYTCrossword','Duolingo','Fitbit','Flipboard','XING','EclipseManager','ActiproSoftwareLLC','CyberLinkMediaSuite','PicsArt','PolarrPhotoEditor','PhototasticCollage','DrawboardPDF','AutodeskSketchBook','Wunderlist','TuneInRadio','SlingTV','OneCalendar','ACGMediaPlayer','Sidia.LiveWallpaper','Asphalt8','CaesarsSlotsFreeCasino','COOKINGFEVER','HiddenCity','MarchofEmpires','DisneyMagicKingdoms','RoyalRevolt','FarmVille2','BlipStudio','AppleInc')
+          $publisherPrefixes = @('BlipStudioInc','Disney.37853FC22B2CE','Instagram','Facebook','Amazon.com.Amazon','AmazonVideo.PrimeVideo','HULULLC','iHeartRadio','Pandora','Plex','Shazam','Viber','WinZip','NYTCrossword','Duolingo','Fitbit','Flipboard','XING','EclipseManager','ActiproSoftwareLLC','CyberLinkMediaSuite','PicsArt','PolarrPhotoEditor','PhototasticCollage','DrawboardPDF','AutodeskSketchBook','Wunderlist','TuneInRadio','SlingTV','OneCalendar','ACGMediaPlayer','Sidia.LiveWallpaper','Asphalt8','CaesarsSlotsFreeCasino','COOKINGFEVER','HiddenCity','MarchofEmpires','DisneyMagicKingdoms','RoyalRevolt','FarmVille2','BlipStudio','AppleInc')
           foreach ($prefix in $publisherPrefixes) {
             Get-AppxPackage -AllUsers | Where-Object { $_.Name -like ($prefix + '*') -or $_.PackageFamilyName -like ($prefix + '*') } | ForEach-Object {
               try { Remove-AppxPackage -Package $_.PackageFullName -AllUsers -ErrorAction SilentlyContinue } catch {}
@@ -339,6 +338,19 @@ actions:
           }
         } catch {}
         $global:LASTEXITCODE = 0
+
+  # Authoritative remove-bloat pass. The per-app !appx tasks above cannot see
+  # provisioned-only families and may leave residue behind when one removal
+  # fails. This one call removes installed and provisioned copies, staging keys,
+  # package folders and per-user app data for the curated list in
+  # app-remove.ps1. Gaming tools and shared AppX frameworks are not listed.
+  - !powerShell:
+      option: "remove-bloat"
+      wait: true
+      exeDir: true
+      errorAction: Ignore
+      command: >-
+        .\app-remove.ps1 -Bloatware
 
   - !powerShell:
     wait: true
@@ -2381,7 +2393,7 @@ actions:
           }
         } catch {}
         $global:LASTEXITCODE = 0
-  - !appx: {name: 'Disney.*', operation: remove, option: "remove-bloat", errorAction: Ignore}
+  - !appx: {name: 'Disney.37853FC22B2CE*', operation: remove, option: "remove-bloat", errorAction: Ignore}
   - !appx: {name: 'MSTeams*', operation: remove, option: "remove-bloat", errorAction: Ignore}
   - !appx: {name: 'MicrosoftTeams*', operation: remove, option: "remove-bloat", errorAction: Ignore}
   - !powerShell:

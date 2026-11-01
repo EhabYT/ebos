@@ -59,7 +59,7 @@ flowchart TD
     E --> F
     F --> G[Pause updates 2025→2033]
     G --> H{Removal options}
-    H -->|remove-bloat| I[Remove bloat AppX + deprovision]
+    H -->|remove-bloat| I[Remove bloat AppX + provisioned + residue]
     H -->|remove-xbox| J[Remove Xbox/GameBar]
     H -->|remove-store| K[Remove Store]
     H -->|remove-onedrive| L[Strip OneDrive]
@@ -96,7 +96,7 @@ flowchart TD
 | Option | Effect |
 |---|---|
 | `browser-brave` | Install Brave silently |
-| `remove-bloat` | Remove bloatware AppX + provisioned |
+| `remove-bloat` | Remove consumer/streaming/social bloatware AppX (installed + provisioned + residue); gaming tools stay |
 | `remove-xbox` | Remove Xbox + GameBar |
 | `remove-store` | Remove Microsoft Store |
 | `remove-edge` | Remove Edge |
@@ -113,6 +113,8 @@ flowchart TD
 | `disable-location` | Location + Maps off |
 | `disable-storage-sense` | Storage Sense off |
 | `fs-privacy` | Extra privacy hardening (phase7) |
+
+`remove-bloat` includes the consumer, streaming and social apps that OEM images preinstall, such as Spotify, Netflix, TikTok, WhatsApp, Messenger, Disney+, HBO Max, Paramount+, Peacock, Crunchyroll, Hulu and Prime Video. It removes installed and provisioned copies, staging keys, package folders and per-user app data. Gaming and streaming production tools (Discord, OBS, Streamlabs, Twitch, Steam, Epic Games, etc.) and shared AppX frameworks (VCLibs, .NET Native, UI.Xaml, WindowsAppRuntime, Microsoft.GamingServices) are deliberately kept. `remove-xbox` is independent and also leaves `Microsoft.GamingServices` installed because Store games can depend on it.
 
 ## Always applied (no wizard option)
 

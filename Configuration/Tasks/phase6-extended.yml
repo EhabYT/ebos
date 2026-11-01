@@ -792,12 +792,16 @@ actions:
         'Groove Music','Music','Voice Recorder','Sound Recorder','Maps','Microsoft Bing','Bing',
         'Feedback Hub','Microsoft Photos','Photos','Phone Link','Your Phone','Power Automate',
         'Dev Home','Quick Assist','MSN Weather','Whiteboard','People','Alarms & Clock',
-        'Camera','Calendar','Maps','Messaging','Connect','Mixed Reality Viewer','Paint 3D',
-        'Spotify','Disney+','Disney','TikTok','Instagram','Prime Video','Netflix','Hulu',
-        'Facebook','Twitter','WhatsApp','Messenger','Pandora','iHeartRadio','Spotify Music'
+        'Camera','Calendar','Maps','Messaging','Connect','Mixed Reality Viewer','Paint 3D'
       )
       if ($opts -contains 'remove-bloat') {
-        $removedAppNames += @('Clipchamp','Microsoft Clipchamp','News','Weather','Solitaire','Microsoft Solitaire Collection')
+        $removedAppNames += @(
+          'Clipchamp','Microsoft Clipchamp','News','Weather','Solitaire','Microsoft Solitaire Collection',
+          'Spotify','Disney+','TikTok','Instagram','Prime Video','Netflix','Hulu',
+          'Facebook','Twitter','WhatsApp','Messenger','Pandora','iHeartRadio','Spotify Music',
+          'HBO Max','Paramount+','Peacock','Crunchyroll','Plex','Shazam','Viber','WinZip',
+          'Duolingo','Fitbit','Flipboard','TuneIn','Sling TV','NYT Crossword'
+        )
       }
       if ($opts -contains 'remove-xbox') {
         $removedAppNames += @('Xbox','Xbox Live','Xbox Console Companion','Xbox Game Bar','Game Bar','Game Speech Window')

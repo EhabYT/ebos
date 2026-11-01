@@ -9,6 +9,16 @@ param(
     [Parameter(ParameterSetName = 'Packages')]
     [switch]$Unregister,
 
+    # Authoritative remove-bloat pass. One call removes the curated consumer,
+    # streaming, social and OEM bloat families, including provisioned-only
+    # copies and their residue. Gaming tools and shared AppX frameworks are
+    # deliberately not in this list.
+    [Parameter(Mandatory = $true, ParameterSetName = 'Bloatware')]
+    [switch]$Bloatware,
+
+    [Parameter(ParameterSetName = 'Bloatware')]
+    [string[]]$AdditionalPackages = @(),
+
     # Final phase-2 sweep. Reads the AppX snapshot taken before the playbook
     # started, computes which families disappeared, and finishes the job for
     # each of them (provisioned copy, staging keys, package folders, app data).
@@ -40,6 +50,164 @@ $AppxDeprovisionedRoot = Join-Path $AppxStoreRoot 'Deprovisioned'
 $AppModelUserRoot = 'Registry::HKEY_USERS'
 $script:FailedCount = 0
 $script:PurgedDataCount = 0
+
+# Authoritative remove-bloat list. Patterns are substrings matched against the
+# package name, package family, package full name and provisioned display name,
+# so no wildcards belong here.
+#
+# Keep gaming/streaming production tools (Discord, OBS, Streamlabs, Twitch,
+# Steam, Epic Games, etc.) and shared AppX framework packages (VCLibs,
+# .NET Native, UI.Xaml, WindowsAppRuntime, Microsoft.GamingServices) out of
+# this list. Microsoft.GamingServices in particular is a dependency of Store
+# games and is therefore not removed by remove-xbox either.
+$script:BloatwarePatterns = @(
+    # Streaming, music, social, shopping and consumer apps.
+    'Spotify',
+    'Netflix',
+    'TikTok',
+    'WhatsApp',
+    'Messenger',
+    'Disney.37853FC22B2CE',   # Disney+; do not match every Disney game
+    'Disney+',
+    'DisneyMagicKingdoms',
+    'Hulu',
+    'PrimeVideo',
+    'Amazon.com.Amazon',
+    'HBO',
+    'Paramount',
+    'Peacock',
+    'Crunchyroll',
+    'Pandora',
+    'iHeartRadio',
+    'Plex',
+    'TuneInRadio',
+    'SlingTV',
+    'Shazam',
+    'Viber',
+    'WinZip',
+    'NYTCrossword',
+    'Duolingo',
+    'Fitbit',
+    'Flipboard',
+    'EclipseManager',
+    'ActiproSoftwareLLC',
+    'CyberLinkMediaSuite',
+    'PicsArt',
+    'PolarrPhotoEditor',
+    'PhototasticCollage',
+    'DrawboardPDF',
+    'AutodeskSketchBook',
+    'XING',
+    'Wunderlist',
+    'OneCalendar',
+    'ACGMediaPlayer',
+    'LiveWallpaper',
+    'Asphalt8',
+    'CaesarsSlots',
+    'COOKINGFEVER',
+    'HiddenCity',
+    'MarchofEmpires',
+    'RoyalRevolt',
+    'FarmVille2',
+    'BlipStudio',
+    'CandyCrush',
+    'BubbleWitch',
+    'FarmHeroes',
+    'BookingApp',
+    'Facebook',
+    'Instagram',
+    'Twitter',
+    '7EE7776C.LinkedInforWindows',
+    'SkypeApp',
+    'AppleMusic',
+    'iTunes',
+    'AdobePhotoshopExpress',
+
+    # Microsoft inbox apps already covered by remove-bloat.
+    'Microsoft.549981C3F5F10',
+    'Microsoft.BingNews',
+    'Microsoft.BingWeather',
+    'Microsoft.BingSearch',
+    'MicrosoftCorporationII.Bing',
+    'Clipchamp.Clipchamp',
+    'Microsoft.GetHelp',
+    'Microsoft.Getstarted',
+    'Microsoft.Microsoft3DViewer',
+    'Microsoft.MSPaint',
+    'Microsoft.MicrosoftOfficeHub',
+    'Microsoft.MicrosoftSolitaireCollection',
+    'Microsoft.MicrosoftStickyNotes',
+    'Microsoft.Office.OneNote',
+    'Microsoft.OutlookForWindows',
+    'Microsoft.OutlookPWA',
+    'Microsoft.People',
+    'Microsoft.PowerAutomateDesktop',
+    'Microsoft.StartExperiencesApp',
+    'Microsoft.Todos',
+    'Microsoft.Whiteboard',
+    'Microsoft.WidgetsPlatformRuntime',
+    'Microsoft.Windows.PeopleExperienceHost',
+    'Microsoft.Windows.SecureAssessmentBrowser',
+    'Microsoft.WindowsAlarms',
+    'Microsoft.WindowsCamera',
+    'Microsoft.WindowsFeedbackHub',
+    'Microsoft.WindowsMaps',
+    'Microsoft.WindowsSoundRecorder',
+    'Microsoft.ZuneMusic',
+    'Microsoft.ZuneVideo',
+    'MicrosoftCorporationII.MicrosoftFamily',
+    'MicrosoftCorporationII.QuickAssist',
+    'MicrosoftWindows.Client.WebExperience',
+    'microsoft.windowscommunicationsapps',
+    'Microsoft.Windows.DevHome',
+    'Microsoft.MicrosoftEdgeDevToolsClient',
+    'Microsoft.MicrosoftPowerBIForWindows',
+    'Microsoft.MixedReality.Portal',
+    'Microsoft.Office.Word',
+    'Microsoft.Office.Excel',
+    'Microsoft.Office.PowerPoint',
+    'Microsoft.Flipgrid',
+    'MicrosoftCorporationII.MailforSurfaceHub',
+    'Microsoft.MicrosoftTeamsforSurfaceHub',
+    'Microsoft.M365Companions',
+    'Microsoft.MicrosoftJournal',
+    'Microsoft.PCManager',
+    'Microsoft.Office.Sway',
+    'Microsoft.NetworkSpeedTest',
+    'Microsoft.Windows.AIHub',
+    'king.com.CandyCrushSaga',
+    'king.com.CandyCrushSodaSaga',
+    'king.com.BubbleWitch3Saga',
+    'king.com.FarmHeroesSaga',
+
+    # OEM bloat: specific apps, not the whole vendor suite. Gaming control
+    # centres such as OMEN Gaming Hub are intentionally absent.
+    'AD2F1837.HPAIExperienceCenter',
+    'AD2F1837.HPConnectedMusic',
+    'AD2F1837.HPConnectedPhoto',
+    'AD2F1837.HPDesktopSupportUtilities',
+    'AD2F1837.HPEasyClean',
+    'AD2F1837.HPFileViewer',
+    'AD2F1837.HPJumpStarts',
+    'AD2F1837.HPPCHardwareDiagnostics',
+    'AD2F1837.HPPowerManager',
+    'AD2F1837.HPPrinterControl',
+    'AD2F1837.HPPrivacySettings',
+    'AD2F1837.HPQuickDrop',
+    'AD2F1837.HPQuickTouch',
+    'AD2F1837.HPRegistration',
+    'AD2F1837.HPSupportAssistant',
+    'AD2F1837.HPSureShieldAI',
+    'AD2F1837.HPSystemInformation',
+    'AD2F1837.HPWelcome',
+    'AD2F1837.HPWorkWell',
+    'AD2F1837.myHP',
+    'DellInc.DellDigitalDelivery',
+    'DellInc.DellMobileConnect',
+    'DellInc.DellSupportAssist',
+    'E046963F.LenovoCompanion',
+    'LenovoCompanyLimited.LenovoVantageService'
+)
 
 function Test-PackageIdentifier {
     param([string]$Value)
@@ -832,13 +1000,19 @@ function Invoke-PurgeRemoved {
 if ($PSCmdlet.ParameterSetName -eq 'PurgeRemoved') {
     Invoke-PurgeRemoved -Path $SnapshotFile -KeepData ([bool]$KeepUserData)
 } else {
-    $patterns = @($Packages | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $keepProvisioned = $false
+    if ($PSCmdlet.ParameterSetName -eq 'Bloatware') {
+        $patterns = @($script:BloatwarePatterns) + @($AdditionalPackages)
+    } else {
+        $patterns = @($Packages)
+        $keepProvisioned = [bool]$Unregister
+    }
+    $patterns = @($patterns | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique)
     if ($patterns.Count -eq 0) {
         Write-AppLog 'No package patterns supplied'
     } else {
-        $keepProvisioned = [bool]$Unregister
-        $purgeResidue = -not [bool]$Unregister
-        $purgeData = (-not [bool]$Unregister) -and (-not [bool]$KeepUserData)
+        $purgeResidue = -not $keepProvisioned
+        $purgeData = (-not $keepProvisioned) -and (-not [bool]$KeepUserData)
         Invoke-PackageRemoval -Patterns $patterns -KeepProvisioned $keepProvisioned -PurgeResidue $purgeResidue -PurgeData $purgeData
     }
 }
